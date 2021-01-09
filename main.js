@@ -9,7 +9,7 @@ const scrape = require('./helpers/scrape');
 	const asins = Object.entries(ASINS);
 
 	for (let [key, value] of asins) {
-		const CHUNKED_ASIN_LIST = chunk(value.asinList, 10);
+		const CHUNKED_ASIN_LIST = chunk(value.asinList, 1);
 		const FILE_NAME = key;
 		const DATE = new Date();
 		const DAY = DATE.getDate();

@@ -3,9 +3,10 @@
 const puppeteer = require('puppeteer');
 
 (async () => {
-	const asin = 'B01LYEB30Z';
+	const asin = 'B01N2147MR';
 
 	try {
+		// const browser = await puppeteer.launch();
 		const browser = await puppeteer.launch({
 			ignoreHTTPSErrors: true,
 			dumpio: false,
@@ -41,7 +42,7 @@ const puppeteer = require('puppeteer');
 				'--no-sandbox',
 				'--disable-setuid-sandbox',
 				'--ignore-certificate-errors',
-				// "--proxy-server=216.169.73.65:40344",
+				'--proxy-server=socks5://127.0.0.1:9050',
 				'--proxy-bypass-list=*',
 			],
 		});
@@ -63,45 +64,68 @@ const puppeteer = require('puppeteer');
 		//   }
 		// });
 
+		// enable request interception
+		await page.setRequestInterception(true);
+		// add header for the navigation requests
+		page.on('request', (request) => {
+			// Do nothing in case of non-navigation requests.
+			if (!request.isNavigationRequest()) {
+				request.continue();
+				return;
+			}
+			// Add a new header for navigation request.
+			const headers = request.headers();
+			headers['X-Requested-With'] = 'XMLHttpRequest';
+			request.continue({headers});
+		});
+
 		await page.goto(`https://www.amazon.com/dp/${asin}?th=1&psc=1`, {
 			waitUntil: 'load',
 		});
 
 		const pageData = await page.evaluate(() => {
-			const asin = window.location.pathname.split('/')[2];
-			let title = document.getElementById('productTitle');
-			let image = document.getElementById('landingImage');
-			let price = document.getElementById('priceblock_ourprice');
-			let offeringID = document.getElementById('offerListingID');
-			let color = document.getElementById('variation_color_name');
-			let size = document.getElementById('variation_size_name');
+			try {
+				const asin = window.location.pathname.split('/')[2];
+				let title = document.getElementById('productTitle');
+				let image = document.getElementById('landingImage');
+				let price = document.getElementById('priceblock_ourprice');
+				let offeringID = document.getElementById('offerListingID');
+				let color = document.getElementById('variation_color_name');
+				let size = document.getElementById('variation_size_name');
 
-			if (price) price = price.innerText;
-			if (title) title = title.innerText;
-			if (image) image = image.src;
-			if (offeringID) offeringID = offeringID.value;
-			if (color) {
-				color = color.querySelector('.selection')
-					? color.querySelector('.selection').innerText
-					: color.innerText.split(':')[1].trim();
-			}
-			if (size) {
-				size = size.classList.contains('variation-dropdown')
-					? size.querySelector(
-							'#dropdown_selected_size_name .a-dropdown-prompt'
-					  ).innerText
-					: size.innerText.split(':')[1].trim();
-			}
+				if (price) price = price.innerText;
+				if (title) title = title.innerText;
+				if (image) image = image.src;
+				if (offeringID) offeringID = offeringID.value;
+				if (color) {
+					color = color.querySelector('.selection')
+						? color.querySelector('.selection').innerText
+						: color.innerText.split(':')[1].trim();
+				}
+				if (size) {
+					size = size.classList.contains('variation-dropdown')
+						? size.querySelector(
+								'#dropdown_selected_size_name .a-dropdown-prompt'
+						  ).innerText
+						: size.innerText.split(':')[1].trim();
+				}
 
-			return {
-				asin,
-				title,
-				image,
-				color,
-				size,
-				price,
-				offeringID,
-			};
+				// const page = document.body.innerHTML;
+
+				// return page;
+
+				return {
+					asin,
+					title,
+					image,
+					color,
+					size,
+					price,
+					offeringID
+				};
+			} catch (error) {
+				return error;
+			}
 		});
 
 		await browser.close();

@@ -14,7 +14,7 @@ const scrape = async (asins) => {
 		asins.map(async (asin) => {
 			const asinData = await (async () => {
 				try {
-					console.log(asin);
+					console.log(`Scraping ${asin}...`);
 
 					// const args = [
 					// 	'--disable-gl-drawing-for-tests',
@@ -74,7 +74,7 @@ const scrape = async (asins) => {
 							'--no-sandbox',
 							'--disable-setuid-sandbox',
 							'--ignore-certificate-errors',
-							// '--proxy-server=socks5://127.0.0.1:9050',
+							'--proxy-server=socks5://127.0.0.1:9050',
 							'--proxy-bypass-list=*',
 						],
 					});
@@ -97,9 +97,27 @@ const scrape = async (asins) => {
 					//   }
 					// });
 
+					// Set a random user agent string
 					await page.setUserAgent(
 						'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.70 Safari/537.36'
 					);
+
+					// enable request interception
+					await page.setRequestInterception(true);
+					
+					page.on('request', (request) => {
+
+						// Do nothing in case of non-navigation requests.
+						if (!request.isNavigationRequest()) {
+							request.continue();
+							return;
+						}
+
+						// Add a new header for navigation request.
+						const headers = request.headers();
+						headers['X-Requested-With'] = 'XMLHttpRequest';
+						request.continue({headers});
+					});
 
 					await page.goto(
 						`https://www.amazon.com/dp/${asin}?th=1&psc=1`,
@@ -108,6 +126,23 @@ const scrape = async (asins) => {
 						}
 					);
 
+					// const cookies = [
+					// 	{
+					// 		name: 'session-id',
+					// 		value: '146-9732534-3643818',
+					// 	},
+					// 	{
+					// 		name: 'cookie2',
+					// 		value: 'val2',
+					// 	},
+					// 	{
+					// 		name: 'cookie3',
+					// 		value: 'val3',
+					// 	},
+					// ];
+
+					// await page.setCookie(...cookies);
+
 					const pageData = await page.evaluate(() => {
 						const asin = window.location.pathname.split('/')[2];
 						let title = document.getElementById('productTitle');
@@ -115,43 +150,41 @@ const scrape = async (asins) => {
 						let price = document.getElementById(
 							'priceblock_ourprice'
 						);
-						let offeringID = document.getElementById(
-							'offerListingID'
-						);
-						let color = document.getElementById(
-							'variation_color_name'
-						);
-						let size = document.getElementById(
-							'variation_size_name'
-						);
-						let rating;
-						let ratingCount;
+						// let offeringID = document.getElementById(
+						// 	'offerListingID'
+						// );
+						// let color = document.getElementById(
+						// 	'variation_color_name'
+						// );
+						// let size = document.getElementById(
+						// 	'variation_size_name'
+						// );
 
 						if (price) price = price.innerText;
 						if (title) title = title.innerText;
 						if (image) image = image.src;
-						if (offeringID) offeringID = offeringID.value;
-						if (color) {
-							color = color.querySelector('.selection')
-								? color.querySelector('.selection').innerText
-								: color.innerText.split(':')[1].trim();
-						}
-						if (size) {
-							size = size.classList.contains('variation-dropdown')
-								? size.querySelector(
-										'#dropdown_selected_size_name .a-dropdown-prompt'
-								  ).innerText
-								: size.innerText.split(':')[1].trim();
-						}
+						// if (offeringID) offeringID = offeringID.value;
+						// if (color) {
+						// 	color = color.querySelector('.selection')
+						// 		? color.querySelector('.selection').innerText
+						// 		: color.innerText.split(':')[1].trim();
+						// }
+						// if (size) {
+						// 	size = size.classList.contains('variation-dropdown')
+						// 		? size.querySelector(
+						// 				'#dropdown_selected_size_name .a-dropdown-prompt'
+						// 		  ).innerText
+						// 		: size.innerText.split(':')[1].trim();
+						// }
 
 						return {
 							asin,
 							title,
 							image,
-							color,
-							size,
+							// color,
+							// size,
 							price,
-							offeringID,
+							// offeringID,
 						};
 					});
 
